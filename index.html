@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  Copyright 2026 CLSOFTLAB (씨엘소프트랩), Dr. Lee Il-guk (이일국)
+  기분은 내가 책임질게 (기책) — 무드 기반 음악 추천 & 플레이어 (DEMO)
+-->
+<html lang="ko" data-theme="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="기분은 내가 책임질게(기책) — 무드 기반 음악 추천 & 플레이어. 데모 모드: 가상 트랙 + Web Audio 실시간 생성 오디오." />
+  <title>기책 · 기분은 내가 책임질게</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c5cff'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white'>♪</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">♪</span>
+        <div class="brand-txt">
+          <strong>기책</strong>
+          <small>기분은 내가 책임질게</small>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="icon-btn" title="테마 전환" aria-label="테마 전환">🌓</button>
+        <button id="reset-btn" class="ghost-btn" title="취향/좋아요 초기화">초기화</button>
+      </div>
+    </header>
+
+    <p class="demo-banner">
+      🎧 <strong>데모 모드</strong> — 모든 트랙은 <b>가상(fictional)</b>이며, 오디오는
+      <b>Web Audio로 실시간 생성되는 데모 톤</b>입니다. 실제 곡이 아닙니다.
+    </p>
+
+    <section class="panel">
+      <h2 class="section-title">지금 기분이 어때요?</h2>
+      <div id="mood-grid" class="mood-grid" role="list" aria-label="무드 선택"></div>
+    </section>
+
+    <section class="panel controls">
+      <div class="slider-row">
+        <label>에너지 <span id="energy-val">자동</span>
+          <input type="range" id="energy-slider" min="0" max="100" value="50" />
+        </label>
+        <label>기분(발랄도) <span id="valence-val">자동</span>
+          <input type="range" id="valence-slider" min="0" max="100" value="50" />
+        </label>
+      </div>
+      <div class="filter-row">
+        <input type="search" id="search-input" placeholder="🔎 곡·아티스트·태그 검색" aria-label="검색" />
+        <select id="genre-select" aria-label="장르 필터"><option value="">전체 장르</option></select>
+        <button id="daily-mix-btn" class="accent-btn">✨ 데일리 믹스</button>
+      </div>
+    </section>
+
+    <main class="grid-2">
+      <section class="panel">
+        <h2 class="section-title" id="playlist-title">추천 플레이리스트</h2>
+        <ol id="playlist" class="tracklist" aria-live="polite"></ol>
+      </section>
+
+      <aside class="panel">
+        <h2 class="section-title">🌱 신인 아티스트 발굴</h2>
+        <p class="muted">노출이 보장되는 새 얼굴들</p>
+        <ol id="discover" class="tracklist compact"></ol>
+
+        <h2 class="section-title" style="margin-top:1.2rem">내 취향 프로필</h2>
+        <div id="taste-profile" class="taste"></div>
+      </aside>
+    </main>
+
+    <footer class="app-footer">
+      <span>기책 · DEMO</span> ·
+      <span>Apache-2.0</span> ·
+      <span>Not an official Anthropic product.</span>
+    </footer>
+  </div>
+
+  <!-- 하단 고정 플레이어 -->
+  <div id="player" class="player" data-active="false">
+    <div class="np-art" id="now-art" aria-hidden="true"></div>
+    <div class="np-meta">
+      <strong id="now-title">재생할 곡을 골라보세요</strong>
+      <small id="now-artist">—</small>
+    </div>
+    <div class="np-controls">
+      <button id="btn-prev" class="icon-btn" title="이전" aria-label="이전">⏮</button>
+      <button id="btn-play" class="play-btn" title="재생/일시정지" aria-label="재생">▶</button>
+      <button id="btn-next" class="icon-btn" title="다음" aria-label="다음">⏭</button>
+    </div>
+    <div class="np-progress">
+      <span id="cur-time">0:00</span>
+      <div class="progress-track" id="progress-track">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <span id="dur-time">0:00</span>
+    </div>
+    <div class="np-extra">
+      <button id="btn-like" class="icon-btn" title="좋아요" aria-label="좋아요">🤍</button>
+      <button id="btn-dislike" class="icon-btn" title="싫어요" aria-label="싫어요">👎</button>
+      <input type="range" id="volume" min="0" max="100" value="70" title="볼륨" aria-label="볼륨" />
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

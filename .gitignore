@@ -1,0 +1,16 @@
+# Dependencies (this is a no-build static app — none required)
+node_modules/
+package-lock.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs / temp
+*.log
+.cache/
+dist/
+tmp/
