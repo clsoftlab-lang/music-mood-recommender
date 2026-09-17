@@ -65,9 +65,26 @@ npm start                   # http://localhost:8788/api/ai
 export const AI_ENDPOINT = "http://localhost:8788/api/ai";
 ```
 
-프록시가 Claude(모델 **`claude-opus-5`**, `thinking: {type: "adaptive"}`)를 호출해 텍스트를 스트리밍합니다. [`server/README.md`](./server/README.md) 참고.
+프록시가 Claude(기본 모델 **`claude-haiku-4-5`**, 비용 우선)를 호출해 텍스트를 스트리밍합니다. [`server/README.md`](./server/README.md) 참고.
 
 > **🔒 API 키는 서버에만.** 키는 백엔드 프로세스의 `ANTHROPIC_API_KEY` 환경변수로만 읽습니다 — **브라우저·저장소에는 절대 두지 않습니다.** 프런트는 프록시 URL 만 압니다. `node check.mjs` 가 소스에서 실제 키 형식을 스캔하고 `AI_ENDPOINT` 가 비어 있는지 확인합니다.
+
+## ⚙️ 고도화 — 무인·저비용 실 AI 연동
+
+AI 프록시를 **무인(autonomous)·저비용(cost-efficient)·실 Claude** 로 고도화했습니다.
+
+- **비용 모델.** 기본 모델 **`claude-haiku-4-5`**(≈ **입력 $1 / MTok, 출력 $5 / MTok**),
+  품질이 더 필요하면 `AI_MODEL=claude-sonnet-5` 또는 `claude-opus-5`. 안정적인 태스크별
+  system 프롬프트에 **prompt caching**(`cache_control:{type:'ephemeral'}`)을 적용해 반복 호출
+  비용을 낮추고, 태스크당 `max_tokens`(~700) 상한을 둡니다. **월간 토큰 예산**
+  (`AI_MONTHLY_TOKEN_CAP`, 기본 200만) + IP당 분당 제한(20/분)으로 지출을 방어합니다.
+- **대략 비용.** 한 요청은 짧은 system(첫 호출 이후 캐시됨) + 작은 JSON + 출력 ≤700 토큰 —
+  Haiku 4.5 기준 **요청당 약 $0.003–0.005**, 즉 **1,000요청당 ≈ $3–5**(캐시가 데워질수록 더 저렴).
+- **무료 원클릭 배포(무인).** **Cloudflare Workers** 변형(`server/worker.js` + `server/wrangler.toml`)은
+  관리할 서버 없이 무료 티어에서 돌아갑니다 — `wrangler secret put ANTHROPIC_API_KEY` 후 `wrangler deploy`.
+- **자동 실행 + 절대 안 멈춤.** 접속 시 **"지금 시간대 무드 자동 플레이리스트"**(로컬 시각→무드,
+  규칙 엔진 + AI DJ 카피)를 스스로 만들어 둡니다. 엔드포인트 오류 / `429 {fallback:true}` / 네트워크
+  단절 시 `ai/ai.js` 가 **오프라인 mock 으로 자동 폴백**해 앱이 멈추지 않습니다(무인).
 
 ## Web Audio 데모 재생 원리
 
@@ -112,7 +129,8 @@ audio.js            Web Audio 절차적 합성 엔진
 data/tracks.json    가상 트랙 43개 + 무드 6개
 ai/config.js        AI_ENDPOINT 스위치("" = mock 데모)
 ai/ai.js            플러그형 AI 레이어 — askAI(task,payload) + 한국어 MockProvider
-server/index.mjs    백엔드 프록시 → Claude (키는 서버에만)
+server/index.mjs    백엔드 프록시 → Claude (비용 우선 Haiku·캐싱·예산)
+server/worker.js    Cloudflare Workers 변형(무료·무인) + wrangler.toml
 server/README.md    프록시 실행·보안 안내 · server/.env.example
 check.mjs           CI 검증 + 추천 엔진 단위 테스트 + AI/보안 검사
 .github/workflows/ci.yml

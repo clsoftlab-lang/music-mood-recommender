@@ -65,9 +65,29 @@ Then set `ai/config.js`:
 export const AI_ENDPOINT = "http://localhost:8788/api/ai";
 ```
 
-The proxy calls Claude (model **`claude-opus-5`**, `thinking: {type: "adaptive"}`) and streams text back. See [`server/README.md`](./server/README.md).
+The proxy calls Claude (default model **`claude-haiku-4-5`**, cost-first) and streams text back. See [`server/README.md`](./server/README.md).
 
 > **🔒 API keys are server-side ONLY.** The key is read from `ANTHROPIC_API_KEY` in the backend process — **never in the browser, never in the repo.** The front end only ever knows the proxy URL. `node check.mjs` scans the source for real key formats and asserts `AI_ENDPOINT` is empty.
+
+## ⚙️ 고도화 — 무인·저비용 실 AI 연동
+
+The AI proxy is tuned for **cost-efficient, real Claude, running unmanned (무인)**.
+
+- **Cost model.** Default model **`claude-haiku-4-5`** (≈ **$1 / MTok input, $5 / MTok output**),
+  raise quality with `AI_MODEL=claude-sonnet-5` or `claude-opus-5`. **Prompt caching**
+  (`cache_control:{type:'ephemeral'}`) on the stable per-task system prompt makes repeated calls
+  read cache and cost less; per-task `max_tokens` is capped (~700). A **monthly token budget**
+  (`AI_MONTHLY_TOKEN_CAP`, default 2,000,000) + per-IP rate limit (20/min) guard spend.
+- **Rough estimate.** A typical request is a short system prompt (cached after the first call) +
+  small JSON payload + ≤700 output tokens — on Haiku 4.5 that lands around **~$0.003–0.005 per
+  request**, i.e. **≈ $3–5 per 1,000 requests** (less as caching warms up).
+- **Free one-deploy (무인).** A **Cloudflare Workers** variant (`server/worker.js` +
+  `server/wrangler.toml`) runs on the free tier with no server to babysit —
+  `wrangler secret put ANTHROPIC_API_KEY` then `wrangler deploy`.
+- **Autonomous + never-breaks.** On load the app auto-builds a **"지금 시간대 무드 자동
+  플레이리스트"** (local time-of-day → mood via the recommender, with AI DJ copy). If the endpoint
+  errors / returns `429 {fallback:true}` / the network is down, `ai/ai.js` **auto-falls back to the
+  offline mock**, so the app keeps working unmanned.
 
 ## How the Web Audio demo playback works
 
@@ -112,7 +132,8 @@ audio.js            Web Audio procedural synth engine
 data/tracks.json    43 fictional tracks + 6 moods
 ai/config.js        AI_ENDPOINT switch ("" = mock demo)
 ai/ai.js            pluggable AI layer — askAI(task,payload) + Korean MockProvider
-server/index.mjs    backend proxy → Claude (key stays server-side)
+server/index.mjs    backend proxy → Claude (cost-first Haiku, caching, budget)
+server/worker.js    Cloudflare Workers variant (free, unmanned) + wrangler.toml
 server/README.md    proxy run + security notes · server/.env.example
 check.mjs           CI checks + recommender unit tests + AI/security checks
 .github/workflows/ci.yml

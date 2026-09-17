@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 CLSOFTLAB (씨엘소프트랩), Dr. Lee Il-guk (이일국)
+#
+# Cloudflare Workers 배포 설정 (무료 티어 = 관리할 서버 없음, 무인).
+#   1) npm i -g wrangler        # (또는 npx wrangler)
+#   2) wrangler secret put ANTHROPIC_API_KEY   # 키는 secret 으로만
+#   3) wrangler deploy          # server/worker.js 배포
+# 배포 후 나온 https://<worker>.workers.dev 주소 뒤에 /api/ai 를
+# 프런트 ai/config.js 의 AI_ENDPOINT 로 넣으면 실 Claude 로 전환됩니다.
+
+name = "gichaek-ai-proxy"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# 선택: 비용/품질 튜닝(미설정 시 코드 기본값 사용).
+# [vars]
+# AI_MODEL = "claude-haiku-4-5"   # claude-sonnet-5 / claude-opus-5 로 상향 가능
+# AI_MAX_TOKENS = "700"
+# AI_EFFORT = "low"
+
+# ANTHROPIC_API_KEY 는 vars 가 아니라 secret 으로 설정합니다:
+#   wrangler secret put ANTHROPIC_API_KEY

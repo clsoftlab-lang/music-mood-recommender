@@ -137,14 +137,25 @@ async function streamMock(text, onToken) {
   return text;
 }
 
+// 자동 폴백을 트리거하는 표식 오류(429 {fallback:true} / 네트워크 / 서버 오류).
+class FallbackError extends Error {}
+
 // remote: AI_ENDPOINT 로 POST 후 응답 본문을 스트리밍으로 읽는다.
 async function streamRemote(task, payload, onToken) {
-  const res = await fetch(AI_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ task, payload }),
-  });
-  if (!res.ok) throw new Error(`AI 서버 오류: ${res.status}`);
+  let res;
+  try {
+    res = await fetch(AI_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ task, payload }),
+    });
+  } catch (e) {
+    // 네트워크 오류 → mock 폴백(무인: 앱이 절대 멈추지 않음).
+    throw new FallbackError(`네트워크 오류: ${e?.message || e}`);
+  }
+  // 429 {fallback:true} (요청/월예산 초과) → mock 폴백.
+  if (res.status === 429) throw new FallbackError("서버 폴백 신호(429)");
+  if (!res.ok) throw new FallbackError(`AI 서버 오류: ${res.status}`);
   // 스트리밍 지원 시 청크 단위로, 아니면 통째로.
   let full = "";
   if (res.body && res.body.getReader) {
@@ -179,6 +190,13 @@ export async function askAI(task, payload = {}, { onToken } = {}) {
     text = await streamMock(mockText(task, payload, data), onToken);
     return { text, data, provider: "mock" };
   }
-  text = await streamRemote(task, payload, onToken);
-  return { text, data, provider: "remote" };
+  // 실 API 시도 → 실패/429/네트워크 오류 시 mock 으로 자동 폴백(무인: 앱이 절대 멈추지 않음).
+  try {
+    text = await streamRemote(task, payload, onToken);
+    return { text, data, provider: "remote" };
+  } catch (err) {
+    if (typeof console !== "undefined") console.warn("실 AI 실패 → mock 폴백:", err?.message || err);
+    text = await streamMock(mockText(task, payload, data), onToken);
+    return { text, data, provider: "mock-fallback" };
+  }
 }

@@ -34,6 +34,18 @@
       <b>Web Audio로 실시간 생성되는 데모 톤</b>입니다. 실제 곡이 아닙니다.
     </p>
 
+    <!-- 무인(autonomous): 접속 시각(시간대)만으로 무드를 자동 선정해 플레이리스트를 미리 깔아둔다.
+         AI DJ 카피는 askAI 로 생성 → 실 API 없으면 mock 으로 오프라인 동작. -->
+    <section id="auto-digest" class="panel auto-digest" aria-live="polite" hidden>
+      <div class="auto-head">
+        <span class="auto-emoji" id="auto-emoji" aria-hidden="true">🕒</span>
+        <div>
+          <strong id="auto-title">지금 시간대 무드 자동 플레이리스트</strong>
+          <p class="muted" id="auto-copy">시간대를 읽어 무드를 고르는 중…</p>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <h2 class="section-title">지금 기분이 어때요?</h2>
       <div id="mood-grid" class="mood-grid" role="list" aria-label="무드 선택"></div>

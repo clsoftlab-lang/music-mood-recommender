@@ -41,9 +41,34 @@ export const AI_ENDPOINT = "http://localhost:8788/api/ai";
 
 응답은 `text/plain` 스트림(토큰 델타)입니다. 프런트가 조각을 이어 붙여 실시간 표시합니다.
 
-- 모델: `claude-opus-5`
-- `thinking: { type: "adaptive" }`, `max_tokens: 2048`
-- `client.messages.stream(...)` 로 스트리밍
+### 비용 우선(저비용) 설계
+
+- **기본 모델**: `claude-haiku-4-5` (비용 우선). `AI_MODEL=claude-sonnet-5` 또는
+  `AI_MODEL=claude-opus-5` 로 품질↑(비용↑) 상향 가능.
+- **prompt caching**: 안정적인 태스크별 system 프롬프트를 `cache_control:{type:'ephemeral'}`
+  블록으로 전송 → 반복 호출 시 캐시를 읽어 비용이 줄어듭니다.
+- **thinking/effort**: Haiku 4.5 는 adaptive thinking/effort 를 받지 않아 **미전송**(400 방지).
+  그 외 모델은 `thinking:{type:'adaptive'}` + `output_config:{effort: AI_EFFORT|'low'}`.
+- **출력 상한**: `max_tokens` 기본 `700`(`AI_MAX_TOKENS`).
+- **비용 가드레일**: IP당 분당 요청 제한(`AI_RATE_PER_MIN`, 기본 20) + 월간 토큰 예산
+  (`AI_MONTHLY_TOKEN_CAP`, 기본 2,000,000). 초과 시 **HTTP 429 `{fallback:true}`** →
+  프런트(`ai/ai.js`)가 자동으로 mock 으로 폴백해 **앱이 멈추지 않습니다(무인)**.
+
+## ☁️ Cloudflare Workers 배포 (무료·무인)
+
+관리할 서버가 없는 무료 티어 배포 변형(`server/worker.js` + `server/wrangler.toml`).
+`index.mjs` 와 동일한 태스크 라우팅·모델·caching 규칙을 따르며 Anthropic REST 를 호출합니다.
+
+```bash
+cd server
+npm i -g wrangler                       # 또는 npx wrangler
+wrangler secret put ANTHROPIC_API_KEY   # 키는 secret 으로만 (저장소에 두지 않음)
+wrangler deploy                         # worker.js 배포
+```
+
+배포 후 나온 `https://<worker>.workers.dev` 주소 뒤에 `/api/ai` 를 붙여
+프런트 `ai/config.js` 의 `AI_ENDPOINT` 에 넣으면 실 Claude 로 전환됩니다.
+(선택 튜닝은 `wrangler.toml` 의 `[vars]` 참고.)
 
 ## 보안 규칙 (필독)
 

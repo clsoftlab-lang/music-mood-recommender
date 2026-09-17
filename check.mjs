@@ -159,11 +159,34 @@ for (const f of scanTargets) {
 }
 ok(leaked === null, leaked ? `실제 API 키 형식 발견: ${leaked}` : "소스에 실제 API 키 형식 없음");
 
-// 5-4) 서버는 키를 환경변수에서만 읽는다
+// 5-4) 서버는 키를 환경변수에서만 읽는다 + 비용 우선 기본 모델
 if (existsSync(join(ROOT, "server", "index.mjs"))) {
   const srv = readFileSync(join(ROOT, "server", "index.mjs"), "utf8");
   ok(srv.includes("process.env.ANTHROPIC_API_KEY"), "서버가 ANTHROPIC_API_KEY 환경변수 사용");
-  ok(srv.includes("claude-opus-5"), "서버 모델 claude-opus-5 지정");
+  ok(srv.includes("claude-haiku-4-5"), "서버 기본 모델 비용 우선(claude-haiku-4-5)");
+  ok(srv.includes("process.env.AI_MODEL"), "서버 모델 AI_MODEL 로 설정 가능");
+  ok(srv.includes("cache_control"), "prompt caching(cache_control) 적용");
+  ok(srv.includes("AI_MONTHLY_TOKEN_CAP") && srv.includes("429"), "월 토큰 예산 + 429 폴백 가드레일");
+}
+
+// 5-5) Cloudflare Workers 무인 변형 존재 + 동일 규칙
+if (existsSync(join(ROOT, "server", "worker.js"))) {
+  const w = readFileSync(join(ROOT, "server", "worker.js"), "utf8");
+  ok(w.includes("api.anthropic.com/v1/messages"), "worker: Anthropic REST 호출");
+  ok(w.includes("x-api-key") && w.includes("anthropic-version"), "worker: 필수 헤더 지정");
+  ok(w.includes("cache_control"), "worker: prompt caching 적용");
+}
+
+// 5-6) 프런트: 실패/429/네트워크 오류 시 mock 자동 폴백(무인)
+if (existsSync(join(ROOT, "ai", "ai.js"))) {
+  const aijs = readFileSync(join(ROOT, "ai", "ai.js"), "utf8");
+  ok(aijs.includes("mock-fallback") || aijs.includes("streamMock"), "ai.js: 실 AI 실패 시 mock 폴백");
+}
+
+// 5-7) .gitignore 가 .env 를 제외한다(키/시크릿 커밋 방지)
+if (existsSync(join(ROOT, ".gitignore"))) {
+  const gi = readFileSync(join(ROOT, ".gitignore"), "utf8");
+  ok(/(^|\n)\s*\.env\b/.test(gi) || /(^|\n)\s*\*\.env\b/.test(gi), ".gitignore 가 .env 제외");
 }
 
 /* ---------- 결과 ---------- */

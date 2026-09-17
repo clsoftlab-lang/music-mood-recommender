@@ -59,6 +59,13 @@ body {
 }
 .demo-banner b { color: var(--accent); }
 
+/* 무인: 지금 시간대 무드 자동 플레이리스트 카드 (불필요하게 튀지 않게) */
+.auto-digest { padding: 12px 14px; border-left: 3px solid var(--accent); }
+.auto-digest .auto-head { display: flex; align-items: center; gap: 12px; }
+.auto-digest .auto-emoji { font-size: 1.6rem; line-height: 1; }
+.auto-digest strong { font-size: .95rem; }
+.auto-digest .muted { margin: 4px 0 0; white-space: pre-line; }
+
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
 .section-title { font-size: 1rem; margin: 0 0 12px; }
 .muted { color: var(--muted); font-size: .82rem; margin: 4px 0 10px; }

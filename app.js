@@ -422,6 +422,45 @@ function bindEvents() {
   });
 }
 
+/* ---------- 무인: 지금 시간대 무드 자동 플레이리스트 ---------- */
+// 로컬 시각(시간대) → 무드. 규칙 엔진의 무드 id 로만 매핑(결정론적).
+function moodForHour(h) {
+  if (h >= 5 && h < 9)   return { mood: "happy",   when: "상쾌한 아침" };
+  if (h >= 9 && h < 12)  return { mood: "focus",   when: "집중이 필요한 오전" };
+  if (h >= 12 && h < 14) return { mood: "happy",   when: "기분 좋은 점심" };
+  if (h >= 14 && h < 18) return { mood: "focus",   when: "나른한 오후" };
+  if (h >= 18 && h < 21) return { mood: "drive",   when: "설레는 저녁" };
+  if (h >= 21 && h < 24) return { mood: "comfort", when: "하루를 마무리하는 밤" };
+  return { mood: "rainy", when: "고요한 새벽" };
+}
+
+// 접속하자마자: 시간대 무드로 플레이리스트를 깔고 AI(또는 mock)가 카피를 서술한다.
+async function autoDigest() {
+  const box = $("auto-digest");
+  if (!box) return;
+  const { mood, when } = moodForHour(new Date().getHours());
+  const label = MOOD_PROFILES[mood]?.label || mood;
+  const emoji = (state.moods.find((m) => m.id === mood) || {}).emoji || "🎵";
+  $("auto-emoji").textContent = emoji;
+  $("auto-title").textContent = `🕒 ${when} · ‘${label}’ 무드 자동 추천`;
+  box.hidden = false;
+
+  // 시간대 무드를 현재 무드로 반영하고 플레이리스트를 미리 렌더(무인).
+  state.mood = mood;
+  state.mode = "mood";
+  renderMoods();
+  refresh();
+
+  // AI DJ 카피 생성: 실 API 없거나 실패하면 mock 으로 자동 폴백(오프라인 동작).
+  const copyEl = $("auto-copy");
+  copyEl.textContent = "";
+  try {
+    await askAI("copy", { mood }, { onToken: (tok) => { copyEl.textContent += tok; } });
+  } catch (_) {
+    copyEl.textContent = `${when}엔 ‘${label}’ 무드를 추천해요. 아래 플레이리스트부터 들어보세요. 🎧`;
+  }
+}
+
 /* ---------- 초기화 ---------- */
 async function init() {
   loadState();
@@ -448,6 +487,8 @@ async function init() {
   renderGenres();
   refresh();
   requestAnimationFrame(tickProgress);
+  // 무인: 접속 시각 기준 자동 플레이리스트 + AI 카피(실패 시 mock 폴백).
+  autoDigest();
 }
 
 init();
