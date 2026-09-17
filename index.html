@@ -55,6 +55,20 @@
       </div>
     </section>
 
+    <section class="panel ai-panel">
+      <h2 class="section-title">🤖 AI DJ <span id="ai-badge" class="ai-badge" title="AI 제공자">MOCK</span></h2>
+      <p class="muted">자연어로 지금 무드를 알려주세요. 규칙 기반 엔진이 플레이리스트를 만들고 AI가 이유를 서술합니다.</p>
+      <div class="ai-dj-row">
+        <input type="search" id="ai-dj-input" placeholder='예: "비 오는 밤 드라이브", "시험 전 집중", "지친 하루 위로"' aria-label="AI DJ 무드 입력" />
+        <button id="ai-dj-btn" class="accent-btn">🎧 플레이리스트 생성</button>
+      </div>
+      <div class="ai-actions">
+        <button id="ai-copy-btn" class="ghost-btn">✍️ 무드 카피 생성</button>
+        <button id="ai-reasons-btn" class="ghost-btn">💬 추천 이유 서술</button>
+      </div>
+      <div id="ai-output" class="ai-output" aria-live="polite" hidden></div>
+    </section>
+
     <main class="grid-2">
       <section class="panel">
         <h2 class="section-title" id="playlist-title">추천 플레이리스트</h2>

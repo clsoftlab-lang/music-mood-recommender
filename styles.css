@@ -156,3 +156,27 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
     padding: 12px 20px;
   }
 }
+
+/* ---------- AI 패널 ---------- */
+.ai-panel { border: 1px solid var(--border); }
+.ai-badge {
+  font-size: .6rem; font-weight: 700; letter-spacing: .04em; vertical-align: middle;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+}
+.ai-badge.live { background: var(--good); color: #fff; border-color: transparent; }
+.ai-dj-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ai-dj-row input {
+  flex: 1 1 220px; min-width: 0; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: .9rem;
+}
+.ai-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ai-output {
+  margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); font-size: .85rem; line-height: 1.6; white-space: pre-wrap;
+}
+.ai-output.streaming { border-color: var(--accent); }
+.ai-output.streaming::after { content: "▍"; color: var(--accent); animation: ai-blink 1s steps(2) infinite; }
+@keyframes ai-blink { 50% { opacity: 0; } }
+button:disabled { opacity: .5; cursor: progress; }

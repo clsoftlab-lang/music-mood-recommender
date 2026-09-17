@@ -40,6 +40,35 @@ Ranking is **deterministic** (ties break by id). Liking a track adds weight to i
 - 💾 Taste profile & likes persist to `localStorage` (with reset)
 - 🎨 Album art = inline SVG gradient covers · mobile-first responsive
 
+## 🤖 AI features (API integration)
+
+The app has a **secure, pluggable AI layer** (`ai/`). Three features, all working:
+
+1. **AI DJ** — type a free-text mood ("비 오는 밤 드라이브") and get a playlist. The natural-language mood is parsed to a mood + energy/valence target, the **rule-based `recommender.js` builds the playlist**, and the AI narrates the pick.
+2. **Track-reason narration** — a human-readable sentence per track explaining why it fits the mood.
+3. **Mood / playlist copy** — a catchy title, blurb, and hashtags for the current mood.
+
+**Demo = mock (default).** With `ai/config.js` → `AI_ENDPOINT = ""`, everything runs **in the browser** via a deterministic Korean `MockProvider` that reuses `recommender.js` — no server, no key, fully offline.
+
+**Enable real Claude.** Run the backend proxy and point the front end at it:
+
+```bash
+cd server
+npm install                 # @anthropic-ai/sdk
+cp .env.example .env        # set ANTHROPIC_API_KEY in .env
+npm start                   # http://localhost:8788/api/ai
+```
+
+Then set `ai/config.js`:
+
+```js
+export const AI_ENDPOINT = "http://localhost:8788/api/ai";
+```
+
+The proxy calls Claude (model **`claude-opus-5`**, `thinking: {type: "adaptive"}`) and streams text back. See [`server/README.md`](./server/README.md).
+
+> **🔒 API keys are server-side ONLY.** The key is read from `ANTHROPIC_API_KEY` in the backend process — **never in the browser, never in the repo.** The front end only ever knows the proxy URL. `node check.mjs` scans the source for real key formats and asserts `AI_ENDPOINT` is empty.
+
 ## How the Web Audio demo playback works
 
 There is **no audio file anywhere**. `audio.js` synthesizes each track live with the **Web Audio API**. From a track's `root`/`mode`/`tempo`/`energy`/`valence` it builds a 4-bar loop: a chord progression (I–V–vi–IV for major, i–VI–III–VII for minor) as a triangle-wave pad, a bass line, and a deterministic melody (seeded per track id, denser at higher energy). Waveform and low-pass cutoff scale with energy/valence; high-energy tracks add noise-based percussion, rainy-tagged tracks add filtered noise. A look-ahead scheduler drives play/pause/next so **every track genuinely produces a distinct sound** — zero binaries, zero copyright risk.
@@ -56,7 +85,7 @@ python -m http.server 8985
 Run the checks + recommender unit tests:
 
 ```bash
-node check.mjs        # JSON parse, syntax, required containers, 33 assertions
+node check.mjs        # JSON parse, syntax, required containers, recommender + AI-layer + security checks
 ```
 
 ## 🔶 DEMO-MODE boundaries (read this)
@@ -81,7 +110,11 @@ app.js              UI wiring, player, persistence
 recommender.js      explainable ranking engine (+ similar / daily mix / discover)
 audio.js            Web Audio procedural synth engine
 data/tracks.json    43 fictional tracks + 6 moods
-check.mjs           CI checks + recommender unit tests
+ai/config.js        AI_ENDPOINT switch ("" = mock demo)
+ai/ai.js            pluggable AI layer — askAI(task,payload) + Korean MockProvider
+server/index.mjs    backend proxy → Claude (key stays server-side)
+server/README.md    proxy run + security notes · server/.env.example
+check.mjs           CI checks + recommender unit tests + AI/security checks
 .github/workflows/ci.yml
 ```
 

@@ -8,6 +8,8 @@ import {
   MOOD_PROFILES, buildTaste, recommend, similarTracks, dailyMix, discoverNewArtists,
 } from "./recommender.js";
 import { AudioEngine } from "./audio.js";
+import { askAI } from "./ai/ai.js";
+import { AI_ENDPOINT } from "./ai/config.js";
 
 const STORE_KEY = "gichaek_state_v1";
 const engine = new AudioEngine();
@@ -24,7 +26,9 @@ const state = {
   search: "",
   queue: [],      // 현재 재생 큐 (track 객체 배열)
   index: -1,
-  mode: "mood",   // mood | daily | similar
+  mode: "mood",   // mood | daily | similar | ai
+  aiRanked: [],   // AI DJ 결과(ranked 배열)
+  aiTitle: "",    // AI DJ 플레이리스트 제목
 };
 
 /* ---------- 영속화 ---------- */
@@ -113,7 +117,8 @@ function currentRanked() {
     boostNewArtist: true,
   };
   let ranked;
-  if (state.mode === "daily") ranked = dailyMix(state.tracks, taste(), { limit: 15 });
+  if (state.mode === "ai") ranked = state.aiRanked;
+  else if (state.mode === "daily") ranked = dailyMix(state.tracks, taste(), { limit: 15 });
   else ranked = recommend(state.tracks, opt);
   // 검색 필터
   if (state.search) {
@@ -134,7 +139,7 @@ function renderPlaylist() {
   state.queue = ranked.map((r) => r.track);
   const ol = $("playlist");
   ol.innerHTML = "";
-  const titles = { mood: `추천 · ${MOOD_PROFILES[state.mood]?.label || ""}`, daily: "✨ 데일리 믹스", similar: "유사곡 추천" };
+  const titles = { mood: `추천 · ${MOOD_PROFILES[state.mood]?.label || ""}`, daily: "✨ 데일리 믹스", similar: "유사곡 추천", ai: state.aiTitle || "🤖 AI DJ" };
   $("playlist-title").textContent = titles[state.mode] || "추천 플레이리스트";
   if (!ranked.length) { ol.innerHTML = `<li class="empty">조건에 맞는 곡이 없어요.</li>`; return; }
   ranked.forEach((r, i) => ol.appendChild(trackRow(r, i)));
@@ -304,6 +309,67 @@ function tickProgress() {
   requestAnimationFrame(tickProgress);
 }
 
+/* ---------- AI 기능 (DJ · 추천 이유 · 카피) ---------- */
+// #ai-output 을 열고, 스트리밍 토큰을 이어 붙이는 onToken 콜백을 돌려준다.
+function aiOutputStream(prefix = "") {
+  const el = $("ai-output");
+  el.hidden = false;
+  el.textContent = prefix;
+  el.classList.add("streaming");
+  return (tok) => { el.textContent += tok; };
+}
+function aiOutputDone() { $("ai-output").classList.remove("streaming"); }
+function aiBusy(on) {
+  for (const id of ["ai-dj-btn", "ai-copy-btn", "ai-reasons-btn"]) $(id).disabled = on;
+}
+
+// AI DJ: 자유 문장 → (규칙 엔진)플레이리스트 + (AI)서술.
+async function runAIDj() {
+  const text = $("ai-dj-input").value.trim();
+  if (!text) { $("ai-dj-input").focus(); return; }
+  const onToken = aiOutputStream("");
+  aiBusy(true);
+  try {
+    const { data } = await askAI("dj", {
+      text, tracks: state.tracks, likes: state.likes, dislikes: state.dislikes, limit: 15,
+    }, { onToken });
+    // 해석된 무드를 반영하고 플레이리스트를 렌더
+    state.mood = data.interpretation.mood;
+    state.mode = "ai";
+    state.aiRanked = data.playlist;
+    state.aiTitle = `🤖 AI DJ · ${data.interpretation.label}`;
+    renderMoods();
+    refresh();
+    saveState();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    $("ai-output").textContent = `AI 요청 실패: ${err.message}`;
+    console.error(err);
+  } finally { aiBusy(false); aiOutputDone(); }
+}
+
+// 무드 카피 생성.
+async function runAICopy() {
+  const onToken = aiOutputStream("");
+  aiBusy(true);
+  try { await askAI("copy", { mood: state.mood }, { onToken }); }
+  catch (err) { $("ai-output").textContent = `AI 요청 실패: ${err.message}`; }
+  finally { aiBusy(false); aiOutputDone(); }
+}
+
+// 현재 플레이리스트 상위 곡의 추천 이유 서술.
+async function runAIReasons() {
+  const top = currentRanked().slice(0, 5).map((r) => r.track);
+  if (!top.length) { $("ai-output").hidden = false; $("ai-output").textContent = "먼저 플레이리스트를 만들어 주세요."; return; }
+  const onToken = aiOutputStream("");
+  aiBusy(true);
+  try {
+    const mood = state.mode === "ai" || state.mode === "mood" ? state.mood : null;
+    await askAI("reasons", { tracks: top, mood }, { onToken });
+  } catch (err) { $("ai-output").textContent = `AI 요청 실패: ${err.message}`; }
+  finally { aiBusy(false); aiOutputDone(); }
+}
+
 /* ---------- 이벤트 바인딩 ---------- */
 function bindEvents() {
   $("btn-play").addEventListener("click", togglePlay);
@@ -337,6 +403,12 @@ function bindEvents() {
   $("genre-select").addEventListener("change", (e) => { state.genre = e.target.value; refresh(); });
   $("daily-mix-btn").addEventListener("click", () => { state.mode = "daily"; refresh(); window.scrollTo({ top: 0, behavior: "smooth" }); });
 
+  // AI 기능
+  $("ai-dj-btn").addEventListener("click", runAIDj);
+  $("ai-dj-input").addEventListener("keydown", (e) => { if (e.key === "Enter") runAIDj(); });
+  $("ai-copy-btn").addEventListener("click", runAICopy);
+  $("ai-reasons-btn").addEventListener("click", runAIReasons);
+
   $("theme-toggle").addEventListener("click", () => {
     const cur = document.documentElement.dataset.theme;
     document.documentElement.dataset.theme = cur === "dark" ? "light" : cur === "light" ? "auto" : "dark";
@@ -354,6 +426,13 @@ function bindEvents() {
 async function init() {
   loadState();
   bindEvents();
+  // AI 제공자 배지: 엔드포인트가 있으면 실 API, 없으면 데모(mock)
+  const badge = $("ai-badge");
+  if (badge) {
+    badge.textContent = AI_ENDPOINT ? "API" : "MOCK";
+    badge.classList.toggle("live", !!AI_ENDPOINT);
+    badge.title = AI_ENDPOINT ? `실 Claude 연동: ${AI_ENDPOINT}` : "데모 모드 — 서버 없이 로컬 규칙 엔진으로 생성";
+  }
   $("volume").value = Math.round(engine.volume * 100);
   try {
     const res = await fetch("./data/tracks.json");

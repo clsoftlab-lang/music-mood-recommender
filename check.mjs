@@ -5,13 +5,14 @@
 // recommender.js 단위 테스트(무드+좋아요 태그 → 기대 순서·포함 검증).
 // 실행: node check.mjs   (종료코드 0=통과)
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   recommend, buildTaste, scoreTrack, similarTracks, discoverNewArtists, MOOD_PROFILES,
 } from "./recommender.js";
+import { AI_ENDPOINT } from "./ai/config.js";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 let pass = 0, fail = 0;
@@ -123,6 +124,47 @@ ok(lowV < highV, `슬라이더 발랄도 반영 (저:${lowV.toFixed(2)} < 고:${
 // 4-11) 점수 범위 & 이유 존재
 ok(workout.every((r) => r.score >= 0 && r.score <= 1), "모든 점수 0..1 범위");
 ok(workout.every((r) => Array.isArray(r.reasons) && r.reasons.length > 0), "모든 결과에 추천 이유 존재");
+
+/* ---------- 5. AI 레이어 & 보안 ---------- */
+section("AI 레이어 문법 & 보안");
+
+// 5-1) ai/ · server/ 의 JS/MJS 전부 node --check
+const jsFilesIn = (rel) => {
+  const dir = join(ROOT, rel);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => /\.(mjs|js)$/.test(f)).map((f) => join(rel, f));
+};
+const aiFiles = [...jsFilesIn("ai"), ...jsFilesIn("server")];
+ok(aiFiles.length >= 3, `ai/·server/ JS 파일 존재 (${aiFiles.length}개)`);
+for (const f of aiFiles) {
+  try { execFileSync(process.execPath, ["--check", join(ROOT, f)], { stdio: "pipe" }); ok(true, `${f} 문법 OK`); }
+  catch (e) { ok(false, `${f} 문법 오류: ${e.message}`); }
+}
+
+// 5-2) 데모 기본값: AI_ENDPOINT 는 비어 있어야 한다(브라우저에 서버 주소·키 노출 금지)
+ok(AI_ENDPOINT === "", `AI_ENDPOINT 빈 값(데모/mock 기본) (실제값="${AI_ENDPOINT}")`);
+
+// 5-3) 실제 API 키 형식이 소스에 커밋되지 않았는지 스캔
+//      (정규식을 조각으로 조립해 이 검사 파일 자신이 오탐되지 않게 한다)
+const KEY_RE = new RegExp("sk-" + "ant-[A-Za-z0-9_-]{20,}");
+const scanTargets = [
+  "app.js", "recommender.js", "audio.js", "check.mjs",
+  ...aiFiles,
+];
+let leaked = null;
+for (const f of scanTargets) {
+  const p = join(ROOT, f);
+  if (!existsSync(p)) continue;
+  if (KEY_RE.test(readFileSync(p, "utf8"))) { leaked = f; break; }
+}
+ok(leaked === null, leaked ? `실제 API 키 형식 발견: ${leaked}` : "소스에 실제 API 키 형식 없음");
+
+// 5-4) 서버는 키를 환경변수에서만 읽는다
+if (existsSync(join(ROOT, "server", "index.mjs"))) {
+  const srv = readFileSync(join(ROOT, "server", "index.mjs"), "utf8");
+  ok(srv.includes("process.env.ANTHROPIC_API_KEY"), "서버가 ANTHROPIC_API_KEY 환경변수 사용");
+  ok(srv.includes("claude-opus-5"), "서버 모델 claude-opus-5 지정");
+}
 
 /* ---------- 결과 ---------- */
 console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━\n결과: ${pass} 통과 / ${fail} 실패`);

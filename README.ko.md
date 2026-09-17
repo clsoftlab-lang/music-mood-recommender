@@ -40,6 +40,35 @@
 - 💾 취향·좋아요 `localStorage` 영속화(초기화 가능)
 - 🎨 앨범아트 = 인라인 SVG 그라디언트 · 모바일 우선 반응형
 
+## 🤖 AI 기능 (API 연동)
+
+앱에는 **보안·플러그형 AI 레이어**(`ai/`)가 있습니다. 세 기능 모두 동작합니다:
+
+1. **AI DJ** — 자유 문장("비 오는 밤 드라이브")을 입력하면 플레이리스트가 나옵니다. 자연어 무드를 무드+에너지/발랄도 목표로 해석하고, **규칙 기반 `recommender.js` 가 실제 선곡**을, AI가 그 선곡의 이유를 서술합니다.
+2. **곡 추천 이유 서술** — 각 곡이 무드에 왜 어울리는지 사람 말투 한 줄로.
+3. **무드/플레이리스트 카피 생성** — 현재 무드에 맞는 제목·소개·해시태그.
+
+**데모 = mock(기본).** `ai/config.js` 의 `AI_ENDPOINT = ""` 이면 모든 기능이 **브라우저 안에서** 결정론적 한국어 `MockProvider`(recommender.js 재사용)로 동작합니다 — 서버·키 없이 완전 오프라인.
+
+**실제 Claude 로 전환.** 백엔드 프록시를 띄우고 프런트가 그 주소를 바라보게 합니다:
+
+```bash
+cd server
+npm install                 # @anthropic-ai/sdk
+cp .env.example .env        # .env 안의 ANTHROPIC_API_KEY 설정
+npm start                   # http://localhost:8788/api/ai
+```
+
+그리고 `ai/config.js`:
+
+```js
+export const AI_ENDPOINT = "http://localhost:8788/api/ai";
+```
+
+프록시가 Claude(모델 **`claude-opus-5`**, `thinking: {type: "adaptive"}`)를 호출해 텍스트를 스트리밍합니다. [`server/README.md`](./server/README.md) 참고.
+
+> **🔒 API 키는 서버에만.** 키는 백엔드 프로세스의 `ANTHROPIC_API_KEY` 환경변수로만 읽습니다 — **브라우저·저장소에는 절대 두지 않습니다.** 프런트는 프록시 URL 만 압니다. `node check.mjs` 가 소스에서 실제 키 형식을 스캔하고 `AI_ENDPOINT` 가 비어 있는지 확인합니다.
+
 ## Web Audio 데모 재생 원리
 
 오디오 **파일이 하나도 없습니다.** `audio.js` 가 **Web Audio API** 로 각 트랙을 실시간 합성합니다. 트랙의 `root`/`mode`/`tempo`/`energy`/`valence` 로 4마디 루프를 구성합니다 — 코드 진행(장조 I–V–vi–IV, 단조 i–VI–III–VII)을 삼각파 패드로, 베이스 라인, 그리고 트랙 id로 시드된 결정론적 멜로디(에너지가 높을수록 음표 밀도↑). 파형과 로우패스 컷오프는 에너지/발랄도에 따라 달라지고, 고에너지 곡엔 노이즈 퍼커션, 비 태그 곡엔 필터드 노이즈가 더해집니다. 룩어헤드 스케줄러가 재생/일시정지/다음을 구동해 **모든 곡이 실제로 서로 다른 소리**를 냅니다 — 바이너리 0개, 저작권 위험 0.
@@ -56,7 +85,7 @@ python -m http.server 8985
 검증 + 추천 엔진 단위 테스트:
 
 ```bash
-node check.mjs        # JSON 파싱·문법·필수 컨테이너·33개 단언
+node check.mjs        # JSON 파싱·문법·필수 컨테이너·추천 엔진·AI 레이어·보안 검사
 ```
 
 ## 🔶 데모 모드 경계 (꼭 읽어주세요)
@@ -81,7 +110,11 @@ app.js              UI 배선·플레이어·영속화
 recommender.js      설명가능한 랭킹 엔진(+유사곡/데일리믹스/발굴)
 audio.js            Web Audio 절차적 합성 엔진
 data/tracks.json    가상 트랙 43개 + 무드 6개
-check.mjs           CI 검증 + 추천 엔진 단위 테스트
+ai/config.js        AI_ENDPOINT 스위치("" = mock 데모)
+ai/ai.js            플러그형 AI 레이어 — askAI(task,payload) + 한국어 MockProvider
+server/index.mjs    백엔드 프록시 → Claude (키는 서버에만)
+server/README.md    프록시 실행·보안 안내 · server/.env.example
+check.mjs           CI 검증 + 추천 엔진 단위 테스트 + AI/보안 검사
 .github/workflows/ci.yml
 ```
 

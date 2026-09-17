@@ -1,6 +1,12 @@
-# Dependencies (this is a no-build static app — none required)
+# Dependencies (the SPA needs none; server/ needs @anthropic-ai/sdk)
 node_modules/
 package-lock.json
+
+# Secrets — API keys live ONLY in the backend env, never committed
+.env
+*.env
+!*.env.example
+server/.env
 
 # OS / editor
 .DS_Store

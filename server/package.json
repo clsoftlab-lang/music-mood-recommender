@@ -1,0 +1,18 @@
+{
+  "name": "gichaek-ai-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "기책(Gichaek) AI 백엔드 프록시 — 브라우저 대신 서버에서만 ANTHROPIC_API_KEY 를 사용해 Claude 를 호출하고 텍스트를 스트리밍한다.",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0"
+  },
+  "license": "Apache-2.0"
+}
